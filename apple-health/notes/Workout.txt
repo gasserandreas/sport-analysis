@@ -1,0 +1,34 @@
+Workout:
+LOAD 
+// KEY   																																	// Key for this table: HealthData/Workout
+	Floor(Num(DATE(SubField(startDate,' ',1),'DD.MM.YYYY'))) 										as 	%Date,
+    
+// DIMENSION
+    RowNo()																							as 	Workout.RowNo,
+    sourceName 																						as 	Workout.sourceName],
+	if(WildMatch(device, '*Apple*'), 'watchOS ' & sourceVersion, sourceVersion) 					as 	Workout.Software,
+    subfield(subfield(device,'name:',2),',',1) 														as 	Workout.Device,
+    subfield(subfield(device,'hardware:',2),',',1) 													as 	Workout.Hardware, 
+    SubField(workoutActivityType,'HKWorkoutActivityType',2) 										as 	Workout.workoutActivityTypeEN,
+    ApplyMap('map_ActivitytypeEN_DE',SubField(workoutActivityType,'HKWorkoutActivityType',2),'n/a') as 	Workout.workoutActivityTypeDE,
+    
+    																									Workout.totalEnergyBurnedUnit,		// e.g kcal     
+    durationUnit 																					as 	[Workout.Workout/durationUnit],		// e.g. Stunden
+    																									Workout.totalDistanceUnit,			//e.g. km
+    Num(Timestamp(left(startDate,19),'DD.MM.YYYY hh:mm:ss')) 										as 	[Workout.Workout/Start],
+    Num(Timestamp(left(endDate,19),'DD.MM.YYYY hh:mm:ss')) 											as 	[Workout.Workout/Ende],
+	
+// MEASURE
+	duration 																						as 	[Workout.Workout/duration],			//Workout-Dauer
+	Round(totalDistance,0.2) 																		as 	Workout.totalDistance,
+    Round(totalEnergyBurned,0.1) 																	as 	Workout.totalEnergyBurned
+
+
+
+// NOT USED
+//    %Key_HealthData_09A14EC28E7776EA,    																									// Key to parent table: HealthData
+//    %Key_Workout_90067C64C9B82EA3, 
+//    Floor(Num(DATE(SubField(creationDate,' ',1),'DD.MM.YYYY'))) as [Workout/creationDate]
+//    Floor(Num(DATE(SubField(endDate,' ',1),'DD.MM.YYYY'))) as [Workout/endDate],
+FROM [lib://DataFiles/Export.xml] (XmlSimple, Table is [HealthData/Workout])
+	where YEAR(DATE(SubField(startDate,' ',1),'DD.MM.YYYY')) >= $(vMinLoad);

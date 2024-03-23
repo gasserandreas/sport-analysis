@@ -1,0 +1,84 @@
+Details:
+NoConcatenate LOAD
+	*,
+    RowNo() 																																as Details.RowNo,
+	if(tmp_Flag_Ist_Activity1=1 
+    	OR tmp_Flag_Ist_Activity2=1 
+        	OR tmp_Flag_Ist_Activity3=1
+            	OR tmp_Flag_Ist_Activity4=1, 1,0) as Flag_Timestamp_is_Activity
+;
+LOAD
+	*,
+    if(Details.DateTimeNum>=StartActivity1 AND Details.DateTimeNum<=EndeActivity1,1,0) as tmp_Flag_Ist_Activity1,
+	if(Details.DateTimeNum>=StartActivity2 AND Details.DateTimeNum<=EndeActivity2,1,0) as tmp_Flag_Ist_Activity2,
+	if(Details.DateTimeNum>=StartActivity3 AND Details.DateTimeNum<=EndeActivity3,1,0) as tmp_Flag_Ist_Activity3,
+    if(Details.DateTimeNum>=StartActivity4 AND Details.DateTimeNum<=EndeActivity4,1,0) as tmp_Flag_Ist_Activity4,
+;
+LOAD
+// APPLYMAP's anwenden	--> Bsp. KEY: 1|44250 ODER 2|44250	ODER 3|44250	und das für jedes Datum
+    %Date,
+    %Zeit,
+    Details.DateTimeNum,
+//    Details.RowNo,
+    Details.sourceName,
+    Dual(Details.Software,AutoNumber(Details.Software)) as Details.Software,
+    Details.Device,
+    Details.Hardware,
+    "Details.observation/code/displayName",
+    "Details.value/unit",
+    "Details.value/value",
+      
+    ApplyMap('RowID|Date_Start',1&'|'&%Date,0) as StartActivity1,
+	ApplyMap('RowID|Date_Ende',1&'|'&%Date,0) as EndeActivity1,
+	
+	ApplyMap('RowID|Date_Start',2&'|'&%Date,0) as StartActivity2,
+	ApplyMap('RowID|Date_Ende',2&'|'&%Date,0) as EndeActivity2,
+	
+	ApplyMap('RowID|Date_Start',3&'|'&%Date,0) as StartActivity3,
+	ApplyMap('RowID|Date_Ende',3&'|'&%Date,0) as EndeActivity3,	
+    
+    ApplyMap('RowID|Date_Start',4&'|'&%Date,0) as StartActivity4,
+	ApplyMap('RowID|Date_Ende',4&'|'&%Date,0) as EndeActivity4	
+
+;
+LOAD 
+// KEY
+    %Key_entry_C5AF663D0329E857,    																																					// Key to parent table: ClinicalDocument/entry
+    %Key_component_EEE4BC111C82EB87,    																																				// Key for this table: ClinicalDocument/entry/organizer/component
+    floor(num(date#(left([observation/effectiveTime/low/value],8),'YYYYMMDD'))) 															as %Date,
+    interval(time#(right(Timestamp#(left([observation/effectiveTime/low/value],14),'YYYYMMDDhhmmss'),6),'hhmmss')) 							as %Zeit,
+
+// DIMENSION
+	Num(Timestamp#(left([observation/effectiveTime/low/value],14),'YYYYMMDDhhmmss')) 														as Details.DateTimeNum,
+    [observation/text/sourceName] 																											as Details.sourceName,						//Apple Watch von xy | Blutsauerstoff
+    if(WildMatch([observation/text/device], '*Apple*'), 'watchOS ' & [observation/text/sourceVersion], [observation/text/sourceVersion]) 	as Details.Software,
+    subfield(subfield([observation/text/device],'name:',2),',',1) 																			as Details.Device,
+    subfield(subfield([observation/text/device],'hardware:',2),',',1) 																		as Details.Hardware,        
+    [observation/code/displayName] 																											as [Details.observation/code/displayName],	//Zeigt "Heart rate" oder "Oxyfen saturation	
+    [observation/value/unit] 																												as [Details.value/unit],					//% oder bpm   
+
+// MEASURE
+    Num(Round([observation/value/value],0.01),ApplyMap('map_Bez_Formatierung',[observation/value/unit],'n/a')) 								as [Details.value/value]					//  Wert   
+
+
+// NOT USED
+//	  [observation/classCode],
+//   [observation/moodCode],
+//    [observation/interpretationCode/code] as [interpretationCode/code],
+//    [observation/interpretationCode/codeSystem] as [interpretationCode/codeSystem]
+//    [observation/value/xsi:type] as [xsi:type],    
+//    [observation/effectiveTime/high/value]			//Messung Von/Bis als Timestamp. Ich nehme Low Value 
+//    [observation/effectiveTime/low/value],
+//    [observation/statusCode/code],
+//    [observation/text/value] as [text/value],		//GLEICH Value/Value einfach text
+//    [observation/text/type] as type    
+//    [observation/text/unit] as [text/unit],		//GLEICH WIE [value/unit] --> % oder bpm darum auskommentiert
+//    [observation/text/device] as device,
+//    [observation/code/code],
+//   [observation/code/codeSystem],
+//    [observation/code/codeSystemName],
+//    [observation/id/root],
+//    [observation/templateId/root]
+FROM  [lib://DataFiles/export_cda.xml] (XmlSimple, Table is [ClinicalDocument/entry/organizer/component])
+	where year(date#(left([observation/effectiveTime/low/value],8),'YYYYMMDD'))>= $(vMinLoad)
+		AND match([observation/text/sourceName],'Blutsauerstoff')=0;	//Wird z.B. via App "Blutsauerstoff" dieser gemessen ist sourcename der app hinterlegt, also Blutsauerstoff

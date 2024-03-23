@@ -1,0 +1,40 @@
+ActivitySummary:
+LOAD
+	*,
+ 	RowNo()																							as 	ActivitySummary.RowNo,   
+    
+	if(ActivitySummary.Flag_Goal_Success_activeEnergyBurned=1 
+		AND ActivitySummary.Flag_Goal_Success_ExerciseTime=1 
+			AND ActivitySummary.Flag_Goal_Success_StandHours=1, 1,0) 								as 	ActivitySummary.Flag_All_Goals_Success
+;
+LOAD
+// KEY   
+	Floor(Num(date(dateComponents,'DD.MM.YYYY'))) 													as 	%Date,
+	
+// DIMENSION
+    if(activeEnergyBurned>=activeEnergyBurnedGoal,1,0) 												as 	ActivitySummary.Flag_Goal_Success_activeEnergyBurned,	
+	if(appleMoveTime>=appleMoveTimeGoal,1,0) 														as 	ActivitySummary.Flag_Goal_Success_MoveTime, 
+    if(appleExerciseTime>=appleExerciseTimeGoal,1,0) 												as 	ActivitySummary.Flag_Goal_Success_ExerciseTime,	
+	if(appleStandHours>=appleStandHoursGoal,1,0) 													as 	ActivitySummary.Flag_Goal_Success_StandHours,
+
+// MEASURE	
+    activeEnergyBurned																				as 	ActivitySummary.activeEnergyBurned,
+   	activeEnergyBurnedGoal																			as	ActivitySummary.activeEnergyBurnedGoal,
+    activeEnergyBurnedUnit																			as	ActivitySummary.activeEnergyBurnedUnit,
+    Round(activeEnergyBurned/activeEnergyBurnedGoal,0.0001)											as	ActivitySummary.activeEnergyBurned_Proz,
+    
+    appleMoveTime																					as 	ActivitySummary.appleMoveTime,
+    appleMoveTimeGoal																				as 	ActivitySummary.appleMoveTimeGoal,
+    
+    appleExerciseTime																				as	ActivitySummary.appleExerciseTime,
+    appleExerciseTimeGoal																			as	ActivitySummary.appleExerciseTimeGoal,
+    Round(appleExerciseTime/appleExerciseTimeGoal,0.0001)											as	ActivitySummary.appleExerciseTime_Proz,
+    
+    appleStandHours																					as	ActivitySummary.appleStandHours,
+    appleStandHoursGoal																				as	ActivitySummary.appleStandHoursGoal,
+	Round(appleStandHours/appleStandHoursGoal,0.0001)												as	ActivitySummary.appleStandHours_Proz
+
+// NOT USED
+//    %Key_HealthData_09A14EC28E7776EA    // Key to parent table: HealthData	--> We're using the %Date_field
+FROM [lib://DataFiles/Export.xml] (XmlSimple, Table is [HealthData/ActivitySummary])
+	where Year(date(dateComponents,'DD.MM.YYYY')) >= $(vMinLoad);

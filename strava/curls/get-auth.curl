@@ -1,0 +1,1 @@
+curl --location 'http://www.strava.com/oauth/authorize?client_id={{client_id}}&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%2Fexchange_token&approval_prompt=force&scope=activity%3Aread_all'

@@ -1,0 +1,6 @@
+curl --location 'https://www.strava.com/oauth/token' \
+--header 'Authorization: Bearer {{your-token}}' \
+--form 'client_id="{{client_id}}"' \
+--form 'client_secret="••••••"' \
+--form 'code="••••••"' \
+--form 'grant_type="authorization_code"'
